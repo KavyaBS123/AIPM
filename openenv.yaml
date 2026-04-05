@@ -1,0 +1,256 @@
+---
+# OpenEnv Specification Document
+# AI Product Manager Environment
+
+name: AI Product Manager Environment
+description: |
+  An OpenEnv environment for evaluating AI agents on strategic product management decisions.
+  Agents must prioritize product features while balancing user satisfaction, business impact,
+  and resource constraints. Features realistic scenarios, multiple tasks with difficulty levels,
+  and deterministic grading.
+
+version: "1.0.0"
+author:
+  name: Kavya B S, Imthiyaz K
+  email: kavyabsalawadagi@gmail.com
+
+license: MIT
+
+tags:
+  - product-management
+  - strategic-planning
+  - multi-objective
+  - decision-making
+  - business-simulation
+
+metadata:
+  domain: business-decision-making
+  task_type: feature-prioritization
+  difficulty: medium
+  requires_human_eval: false
+  max_episode_steps: 10
+  expected_runtime_seconds: 30
+
+info:
+  # Environment interface compliance
+  interface_version: "1.0"
+  required_endpoints:
+    - reset
+    - step
+    - state
+    - health
+  
+  # Observation specification
+  observation:
+    type: object
+    properties:
+      step:
+        type: integer
+        description: Current step number in episode
+      summarized_feedback:
+        type: string
+        description: Summary of user feedback and pain points
+      metrics_summary:
+        type: object
+        properties:
+          churn_rate:
+            type: number
+            minimum: 0
+            maximum: 1
+          retention_rate:
+            type: number
+            minimum: 0
+            maximum: 1
+          revenue:
+            type: number
+          user_satisfaction:
+            type: number
+            minimum: 0
+            maximum: 10
+          engagement_score:
+            type: number
+            minimum: 0
+            maximum: 1
+          active_users:
+            type: number
+      features_summary:
+        type: string
+        description: List of available features with effort and request counts
+      prioritized_count:
+        type: integer
+      rejected_count:
+        type: integer
+      delayed_count:
+        type: integer
+      constraint_info:
+        type: string
+        description: Team capacity, budget, and parallel limits
+      available_actions:
+        type: array
+        items:
+          type: string
+        enum:
+          - prioritize_feature
+          - reject_feature
+          - delay_feature
+          - request_more_info
+          - finalize_roadmap
+      time_remaining:
+        type: number
+  
+  # Action specification
+  action:
+    type: object
+    properties:
+      action_type:
+        type: string
+        enum:
+          - prioritize_feature
+          - reject_feature
+          - delay_feature
+          - request_more_info
+          - finalize_roadmap
+        description: The type of action to take
+      feature_id:
+        type: string
+        nullable: true
+        description: Feature ID (required for prioritize/reject/delay, null for others)
+      justification:
+        type: string
+        description: Explanation for the decision
+  
+  # Reward specification
+  reward:
+    type: object
+    properties:
+      step_reward:
+        type: number
+        description: Immediate reward for this step
+      total_reward:
+        type: number
+        description: Cumulative reward up to this step
+    description: Reward ranges from 0.0 to 1.0 per step
+  
+  # Episodes and tasks
+  tasks:
+    - id: task_001
+      name: Easy Feature Prioritization
+      description: Select 3 features from a 5-feature backlog with clear prioritization signals
+      max_steps: 3
+      difficulty: easy
+      expected_success_rate: 0.7
+      
+    - id: task_002
+      name: Medium Feature Prioritization
+      description: Balance 6+ features with conflicting priorities and budget constraints
+      max_steps: 6
+      difficulty: medium
+      expected_success_rate: 0.5
+      
+    - id: task_003
+      name: Hard Feature Prioritization
+      description: Complex scenario with 8+ features, limited capacity, and competing business objectives
+      max_steps: 10
+      difficulty: hard
+      expected_success_rate: 0.3
+  
+  scenarios:
+    - id: scenario_1_saas_analytics
+      name: SaaS Analytics Platform
+      description: B2B SaaS analytics product with 25% churn, $80K budget
+      
+    - id: scenario_2_ecommerce
+      name: E-Commerce Platform
+      description: Online retail with 15% churn, $180K budget, mobile-first
+      
+    - id: scenario_3_healthcare
+      name: Healthcare SaaS
+      description: Medical records platform with 8% churn, $200K budget, strict compliance
+      
+    - id: scenario_4_collaboration
+      name: Collaboration Tool
+      description: Team productivity tool with 22% churn, $150K budget
+      
+    - id: scenario_5_finance
+      name: Personal Finance App
+      description: Finance management app with 18% churn, $140K budget
+
+  # Grading
+  grading:
+    type: automated
+    graders:
+      - task: task_001
+        type: deterministic
+        scoring_method: "Evaluates feature selection quality based on impact and user requests"
+      - task: task_002
+        type: deterministic
+        scoring_method: "Considers constraint satisfaction and business impact"
+      - task: task_003
+        type: deterministic
+        scoring_method: "Complex analysis of strategic fit and risk management"
+
+deployment:
+  platforms:
+    - platform: huggingface-spaces
+      url: null  # Fill in when deployed
+      status: not-deployed
+    - platform: docker
+      image_name: openenv-aipm
+      requires_gpu: false
+      memory_mb: 512
+      cpu_cores: 2
+
+endpoints:
+  reset:
+    method: POST
+    description: Reset environment to initial state
+    parameters:
+      - name: task_id
+        type: string
+        required: true
+      - name: scenario_id
+        type: string
+        required: false
+      - name: seed
+        type: integer
+        required: false
+    response:
+      - observation (Observation)
+      - info (dict)
+  
+  step:
+    method: POST
+    description: Execute one action in the environment
+    parameters:
+      - name: action
+        type: Action
+        required: true
+    response:
+      - observation (Observation)
+      - reward (Reward)
+      - done (boolean)
+      - info (dict)
+  
+  state:
+    method: GET
+    description: Get current environment state
+    response:
+      - state (dict)
+  
+  health:
+    method: GET
+    description: Health check endpoint
+    response:
+      - status (string)
+
+validation:
+  openenv_compatible: true
+  spec_version: "1.0"
+  tested_with_agents:
+    - gpt-4o
+    - llama-3.3-70b
+  
+reproducibility:
+  seed_support: true
+  deterministic_graders: true
+  deterministic_scenarios: true
