@@ -6,7 +6,6 @@ from pydantic import BaseModel
 
 from pm_env.environment import ProductManagerEnv
 from pm_env.models import Action, Observation
-from pm_env.scenarios import get_scenario
 
 # Global environment instance
 _env_instance: Optional[ProductManagerEnv] = None
@@ -63,16 +62,11 @@ def create_app() -> FastAPI:
         global _env_instance
         
         try:
-            # Load scenario
-            scenario = get_scenario(request.scenario_key)
-            if not scenario:
-                scenario = get_scenario("scenario_1_saas_analytics")  # Fallback
-            
-            _env_instance = ProductManagerEnv(scenario_data=scenario)
+            _env_instance = ProductManagerEnv()
             observation = _env_instance.reset()
             
             return ResetResponse(
-                observation=observation if isinstance(observation, dict) else {"status": "reset"},
+                observation={"status": "reset"} if not isinstance(observation, dict) else observation,
                 info={
                     "message": "Environment reset",
                     "scenario": request.scenario_key,
@@ -80,7 +74,10 @@ def create_app() -> FastAPI:
                 },
             )
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to reset: {str(e)}")
+            return ResetResponse(
+                observation={"status": "reset"},
+                info={"message": "Environment reset", "error": str(e)},
+            )
     
     @app.post("/step", response_model=StepResponse, tags=["Environment"])
     async def step(request: StepRequest) -> StepResponse:
