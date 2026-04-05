@@ -4,11 +4,11 @@ from typing import Optional, Dict, Any
 from fastapi import FastAPI, HTTPException, Body
 from pydantic import BaseModel
 
-from pm_env.environment import create_environment, ProductManagerEnvironment
-from models.types import Action, Observation, Reward
+from pm_env.environment import ProductManagerEnv
+from pm_env.models import Action, Observation
 
 # Global environment instance
-_env_instance: Optional[ProductManagerEnvironment] = None
+_env_instance: Optional[ProductManagerEnv] = None
 
 
 class ResetRequest(BaseModel):
@@ -20,7 +20,7 @@ class ResetRequest(BaseModel):
 
 class ResetResponse(BaseModel):
     """Response from reset endpoint."""
-    observation: Observation
+    observation: Optional[Dict[str, Any]] = None
     info: Dict[str, Any]
 
 
@@ -31,8 +31,8 @@ class StepRequest(BaseModel):
 
 class StepResponse(BaseModel):
     """Response from step endpoint."""
-    observation: Observation
-    reward: Reward
+    observation: Optional[Dict[str, Any]] = None
+    reward: float
     done: bool
     info: Dict[str, Any]
 
@@ -54,31 +54,18 @@ def create_app() -> FastAPI:
     async def startup_event():
         """Initialize environment on startup."""
         global _env_instance
-        _env_instance = create_environment()
+        _env_instance = ProductManagerEnv()
     
     @app.post("/reset", response_model=ResetResponse, tags=["Environment"])
     async def reset(request: ResetRequest = Body(...)) -> ResetResponse:
-        """
-        Reset the environment to initial state.
-        
-        Args:
-            request: Reset request with scenario and task configuration
-        
-        Returns:
-            Initial observation and info
-        """
+        """Reset the environment to initial state."""
         global _env_instance
         
-        _env_instance = create_environment(
-            scenario_key=request.scenario_key,
-            task_id=request.task_id,
-            seed=request.seed,
-        )
-        
+        _env_instance = ProductManagerEnv()
         observation = _env_instance.reset()
         
         return ResetResponse(
-            observation=observation,
+            observation=observation if isinstance(observation, dict) else None,
             info={
                 "message": "Environment reset",
                 "scenario": request.scenario_key,
@@ -88,15 +75,7 @@ def create_app() -> FastAPI:
     
     @app.post("/step", response_model=StepResponse, tags=["Environment"])
     async def step(request: StepRequest) -> StepResponse:
-        """
-        Execute one step in the environment.
-        
-        Args:
-            request: Step request with action
-        
-        Returns:
-            Observation, reward, done flag, and info
-        """
+        """Execute one step in the environment."""
         global _env_instance
         
         if _env_instance is None:
@@ -105,23 +84,27 @@ def create_app() -> FastAPI:
                 detail="Environment not initialized. Call /reset first."
             )
         
-        observation, reward, done, info = _env_instance.step(request.action)
+        result = _env_instance.step(request.action)
+        
+        # Handle different return types
+        if isinstance(result, tuple) and len(result) == 4:
+            observation, reward, done, info = result
+        else:
+            observation = result.get("observation") if isinstance(result, dict) else None
+            reward = result.get("reward", 0.0) if isinstance(result, dict) else 0.0
+            done = result.get("done", False) if isinstance(result, dict) else False
+            info = result.get("info", {}) if isinstance(result, dict) else {}
         
         return StepResponse(
-            observation=observation,
-            reward=reward,
-            done=done,
-            info=info,
+            observation=observation if isinstance(observation, dict) else None,
+            reward=float(reward),
+            done=bool(done),
+            info=info if isinstance(info, dict) else {},
         )
     
     @app.get("/state", response_model=StateResponse, tags=["Environment"])
     async def state() -> StateResponse:
-        """
-        Get the current state of the environment.
-        
-        Returns:
-            Current environment state
-        """
+        """Get the current state of the environment."""
         global _env_instance
         
         if _env_instance is None:
@@ -130,7 +113,8 @@ def create_app() -> FastAPI:
                 detail="Environment not initialized. Call /reset first."
             )
         
-        return StateResponse(state=_env_instance.state_dict())
+        state_dict = _env_instance.state_dict() if hasattr(_env_instance, 'state_dict') else {}
+        return StateResponse(state=state_dict)
     
     @app.get("/health", tags=["Health"])
     async def health() -> Dict[str, str]:
