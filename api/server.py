@@ -4,8 +4,8 @@ from typing import Optional, Dict, Any
 from fastapi import FastAPI, HTTPException, Body
 from pydantic import BaseModel
 
-from env import create_environment, ProductManagerEnvironment
-from models import Action, Observation, Reward
+from pm_env.environment import create_environment, ProductManagerEnvironment
+from models.types import Action, Observation, Reward
 
 # Global environment instance
 _env_instance: Optional[ProductManagerEnvironment] = None
