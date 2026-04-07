@@ -1,4 +1,14 @@
 
+---
+title: OpenEnv AI Product Manager
+emoji: 🤖
+colorFrom: blue
+colorTo: purple
+sdk: docker
+app_file: main.py
+pinned: false
+---
+
 # AI Product Manager Environment
 
 **OpenEnv Submission for AI Product Manager Decision-Making**
