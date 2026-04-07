@@ -192,8 +192,8 @@ info:
 deployment:
   platforms:
     - platform: huggingface-spaces
-      url: null  # Fill in when deployed
-      status: not-deployed
+      url: https://huggingface.co/spaces/kavya25/openenv-aipm
+      status: deployed
     - platform: docker
       image_name: openenv-aipm
       requires_gpu: false
