@@ -21,7 +21,7 @@ dependencies = [
 ]
 
 [project.scripts]
-server = "api.server:main"
+server = "app:app"
 
 [project.optional-dependencies]
 dev = [
