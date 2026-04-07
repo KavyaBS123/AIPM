@@ -1,12 +1,3 @@
----
-title: AI Product Manager Environment
-emoji: 🎯
-colorFrom: blue
-colorTo: green
-sdk: docker
-app_file: api/server.py
-pinned: false
----
 
 # AI Product Manager Environment
 
