@@ -1,11 +1,11 @@
 """
-OpenEnv AI Product Manager Server Entry Point
+OpenEnv AI Product Manager - Root Entry Point for HF Spaces
 
-This is the root-level entry point for the OpenEnv hackathon.
-The validator expects app.py at the repo root.
+This is for HF Spaces compatibility.
+The actual server implementation is in server/app.py
 """
 
-from api.server import app
+from server.app import app
 
 if __name__ == "__main__":
     import uvicorn

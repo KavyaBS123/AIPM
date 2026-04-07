@@ -21,7 +21,7 @@ dependencies = [
 ]
 
 [project.scripts]
-server = "app:app"
+server = "server.app:main"
 
 [project.optional-dependencies]
 dev = [
@@ -36,7 +36,7 @@ GitHub = "https://github.com/KavyaBS123/AIPM"
 "Hugging Face Space" = "https://huggingface.co/spaces/kavya25/openenv-aipm"
 
 [tool.setuptools]
-packages = ["pm_env", "scenarios", "api"]
+packages = ["pm_env", "scenarios", "api", "server"]
 
 [tool.black]
 line-length = 100
