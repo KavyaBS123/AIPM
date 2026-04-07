@@ -45,6 +45,7 @@ SCENARIOS = {
             "churn_rate": 0.25,
             "retention_rate": 0.75,
             "revenue": 450000,
+            "revenue_growth": 12.5,
             "user_satisfaction": 0.62,
             "engagement_score": 0.58,
             "active_users": 12500
@@ -117,7 +118,8 @@ SCENARIOS = {
             "budget_available": 80000,
             "deadline": None,
             "max_parallel_features": 2
-        }
+        },
+        "correct_priority_order": ["F001", "F004", "F002", "F003", "F005"]  # Ordered by user_requests
     },
     "scenario_2_saas": {
         "name": "SaaS Analytics Platform",
@@ -157,8 +159,9 @@ SCENARIOS = {
         "metrics": {
             "churn_rate": 0.18,
             "retention_rate": 0.82,
+            "revenue_growth": 8.5,  # Added for Metrics validation
+            "user_satisfaction": 71.0,  # Converted from 0.71 scale
             "revenue": 280000,
-            "user_satisfaction": 0.71,
             "engagement_score": 0.68,
             "active_users": 8300
         },
@@ -230,7 +233,8 @@ SCENARIOS = {
             "budget_available": 60000,
             "deadline": None,
             "max_parallel_features": 2
-        }
+        },
+        "correct_priority_order": ["F102", "F101", "F105", "F104", "F103"]  # Ordered by user_requests
     },
     "scenario_3_social": {
         "name": "Social Network Platform",
@@ -271,6 +275,7 @@ SCENARIOS = {
             "churn_rate": 0.35,
             "retention_rate": 0.65,
             "revenue": 2100000,
+            "revenue_growth": 3.2,
             "user_satisfaction": 0.55,
             "engagement_score": 0.52,
             "active_users": 89000
@@ -343,7 +348,8 @@ SCENARIOS = {
             "budget_available": 150000,
             "deadline": None,
             "max_parallel_features": 3
-        }
+        },
+        "correct_priority_order": ["F202", "F201", "F204", "F203", "F205"]  # Ordered by user_requests
     }
 }
 

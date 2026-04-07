@@ -35,6 +35,9 @@ class ProductManagerEnv:
         self.prioritized_features = []
         self.rejected_features = []
         self.delayed_features = []
+        
+        # Track total rewards for final score
+        self.total_rewards = 0.0
     
     def reset(self) -> Observation:
         """
@@ -45,6 +48,7 @@ class ProductManagerEnv:
         """
         self.step_count = 0
         self.done = False
+        self.total_rewards = 0.0  # Reset total rewards
         self.prioritized_features = []
         self.rejected_features = []
         self.delayed_features = []
@@ -52,22 +56,65 @@ class ProductManagerEnv:
         # Create initial observation from scenario
         metrics = Metrics(**self.scenario_data.get("metrics", {}))
         
+        # Clean up constraints - remove None values
+        constraints = self.scenario_data.get("constraints", {})
+        clean_constraints = {k: v for k, v in constraints.items() if v is not None}
+        
         features = []
         for feature_data in self.scenario_data.get("features", []):
-            features.append(Feature(**feature_data))
+            # Map scenario feature format to Feature model
+            # Features in scenarios have complex structure, simplify for Feature model
+            mapped_feature = {
+                "id": feature_data.get("feature_id", "unknown"),
+                "name": feature_data.get("name", ""),
+                "impact_area": self._determine_impact_area(feature_data),
+                "effort": self._normalize_effort(feature_data.get("effort", 3)),
+                "votes": int(feature_data.get("user_requests", 0))  # Use user_requests as votes
+            }
+            features.append(Feature(**mapped_feature))
         
         self.current_observation = Observation(
             scenario_id=self.scenario_data.get("id", "unknown"),
-            user_complaints=self.scenario_data.get("user_complaints", []),
+            user_complaints=self._extract_complaints(),
             metrics=metrics,
             feature_backlog=features,
-            constraints=self.scenario_data.get("constraints", {}),
+            constraints=clean_constraints,
             previous_actions=[],
             step_count=0
         )
         
         return self.current_observation
     
+    def _extract_complaints(self) -> list:
+        """Extract user complaint strings from user_feedback."""
+        complaints = []
+        for feedback in self.scenario_data.get("user_feedback", []):
+            if isinstance(feedback, dict):
+                complaint = feedback.get("complaint", "")
+                if complaint and complaint not in complaints:  # Avoid duplicates
+                    complaints.append(complaint)
+            elif isinstance(feedback, str):
+                complaints.append(feedback)
+        return complaints
+    
+    def _determine_impact_area(self, feature_data: Dict) -> str:
+        """Determine primary impact area based on feature impacts."""
+        impacts = []
+        if feature_data.get("impact_on_satisfaction", 0) > 0.3:
+            impacts.append("satisfaction")
+        if feature_data.get("impact_on_revenue", 0) > 0.3:
+            impacts.append("revenue")
+        if feature_data.get("impact_on_churn", 0) < -0.2:
+            impacts.append("retention")
+        
+        # Return the most impactful area, default to satisfaction
+        return impacts[0] if impacts else "satisfaction"
+    
+    def _normalize_effort(self, effort: int) -> int:
+        """Normalize effort from scenario scale (20-80) to Feature model scale (1-5)."""
+        # Scale from ~20-80 to 1-5
+        normalized = max(1, min(5, int((effort - 10) / 12)))
+        return normalized or 1
     def step(self, action: Action) -> StepResult:
         """
         Execute one step in the environment.
@@ -121,6 +168,9 @@ class ProductManagerEnv:
         
         info["done"] = self.done
         
+        # Accumulate total rewards
+        self.total_rewards += reward
+        
         return StepResult(
             observation=copy.deepcopy(self.current_observation),
             reward=reward,
@@ -146,6 +196,37 @@ class ProductManagerEnv:
             "rejected_features": self.rejected_features,
             "delayed_features": self.delayed_features,
             "scenario_id": self.scenario_data.get("id", "unknown")
+        }
+    
+    def state_dict(self) -> Dict:
+        """
+        Get the full state dict with grader_score.
+        
+        Returns:
+            Dictionary representation of current state with final scoring
+        """
+        if self.current_observation is None:
+            return {
+                "status": "not_initialized",
+                "grader_score": 0.0,
+                "total_reward": 0.0
+            }
+        
+        # Calculate grader_score as a function of total_rewards
+        # grader_score = min(1.0, total_rewards) to cap at 1.0
+        # This means 1.12 rewards → 1.0 grader score
+        grader_score = min(1.0, self.total_rewards)
+        
+        return {
+            "observation": self.current_observation.dict(),
+            "step_count": self.step_count,
+            "done": self.done,
+            "prioritized_features": self.prioritized_features,
+            "rejected_features": self.rejected_features,
+            "delayed_features": self.delayed_features,
+            "scenario_id": self.scenario_data.get("id", "unknown"),
+            "total_reward": self.total_rewards,
+            "grader_score": grader_score
         }
     
     def _validate_action(self, action: Action) -> Tuple[bool, Dict]:

@@ -6,6 +6,7 @@ from pydantic import BaseModel
 
 from pm_env.environment import ProductManagerEnv
 from pm_env.models import Action, Observation
+from scenarios.data import SCENARIOS
 
 # Global environment instance
 _env_instance: Optional[ProductManagerEnv] = None
@@ -13,7 +14,8 @@ _env_instance: Optional[ProductManagerEnv] = None
 
 class ResetRequest(BaseModel):
     """Request to reset environment."""
-    scenario_key: str = "scenario_1_ecommerce"
+    scenario_id: Optional[str] = None  # Accept scenario_id from inference script
+    scenario_key: str = "scenario_1_ecommerce"  # Default scenario
     task_id: Optional[str] = None
     seed: int = 42
 
@@ -61,22 +63,49 @@ def create_app() -> FastAPI:
         """Reset the environment to initial state."""
         global _env_instance
         
+        # Determine which scenario to use
+        scenario_key = request.scenario_id or request.scenario_key or "scenario_1_ecommerce"
+        
+        # Map human-readable names to actual scenario keys if needed
+        scenario_mapping = {
+            "scenario_1_saas_analytics": "scenario_2_saas",  # Map legacy name
+            "scenario_1_ecommerce": "scenario_1_ecommerce",
+            "scenario_2_saas": "scenario_2_saas",
+            "scenario_3_social": "scenario_3_social",
+        }
+        
+        # Use mapped name if available, otherwise use as-is
+        if scenario_key in scenario_mapping:
+            scenario_key = scenario_mapping[scenario_key]
+        
+        if scenario_key not in SCENARIOS:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unknown scenario: {scenario_key}. Available: {list(SCENARIOS.keys())}"
+            )
+        
         try:
-            _env_instance = ProductManagerEnv()
+            scenario_data = SCENARIOS[scenario_key]
+            
+            # Create and initialize environment with scenario data
+            _env_instance = ProductManagerEnv(scenario_data=scenario_data)
             observation = _env_instance.reset()
             
+            # Convert observation to dict if needed
+            obs_dict = observation.dict() if hasattr(observation, 'dict') else observation
+            
             return ResetResponse(
-                observation={"status": "reset"} if not isinstance(observation, dict) else observation,
+                observation=obs_dict,
                 info={
-                    "message": "Environment reset",
-                    "scenario": request.scenario_key,
+                    "message": "Environment reset successfully",
+                    "scenario": scenario_key,
                     "task": request.task_id,
                 },
             )
         except Exception as e:
-            return ResetResponse(
-                observation={"status": "reset"},
-                info={"message": "Environment reset", "error": str(e)},
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to reset environment: {str(e)}"
             )
     
     @app.post("/step", response_model=StepResponse, tags=["Environment"])
@@ -93,16 +122,30 @@ def create_app() -> FastAPI:
         result = _env_instance.step(request.action)
         
         # Handle different return types
-        if isinstance(result, tuple) and len(result) == 4:
+        # Result should be a StepResult object
+        if hasattr(result, 'reward'):  # It's a StepResult object
+            observation = result.observation
+            reward = result.reward
+            done = result.done
+            info = result.info
+            # Convert observation to dict if needed
+            obs_dict = observation.dict() if hasattr(observation, 'dict') else observation
+        elif isinstance(result, tuple) and len(result) == 4:
             observation, reward, done, info = result
+            obs_dict = observation if isinstance(observation, dict) else observation.dict() if hasattr(observation, 'dict') else None
+        elif isinstance(result, dict):
+            obs_dict = result.get("observation")
+            reward = result.get("reward", 0.0)
+            done = result.get("done", False)
+            info = result.get("info", {})
         else:
-            observation = result.get("observation") if isinstance(result, dict) else None
-            reward = result.get("reward", 0.0) if isinstance(result, dict) else 0.0
-            done = result.get("done", False) if isinstance(result, dict) else False
-            info = result.get("info", {}) if isinstance(result, dict) else {}
+            obs_dict = None
+            reward = 0.0
+            done = False
+            info = {}
         
         return StepResponse(
-            observation=observation if isinstance(observation, dict) else None,
+            observation=obs_dict,
             reward=float(reward),
             done=bool(done),
             info=info if isinstance(info, dict) else {},
