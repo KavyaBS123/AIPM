@@ -165,6 +165,24 @@ def create_app() -> FastAPI:
         state_dict = _env_instance.state_dict() if hasattr(_env_instance, 'state_dict') else {}
         return StateResponse(state=state_dict)
     
+    @app.get("/", tags=["Root"])
+    async def root() -> Dict[str, Any]:
+        """Root endpoint - returns service info and links to other endpoints."""
+        return {
+            "service": "AI Product Manager Environment",
+            "status": "running",
+            "version": "1.0.0",
+            "openenv_compatible": True,
+            "available_endpoints": {
+                "root": "GET /",
+                "health": "GET /health",
+                "info": "GET /info",
+                "reset": "POST /reset",
+                "step": "POST /step",
+                "state": "GET /state",
+            },
+        }
+    
     @app.get("/health", tags=["Health"])
     async def health() -> Dict[str, str]:
         """Health check endpoint."""
