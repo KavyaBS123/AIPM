@@ -15,9 +15,9 @@ _env_instance: Optional[ProductManagerEnv] = None
 class ResetRequest(BaseModel):
     """Request to reset environment."""
     scenario_id: Optional[str] = None  # Accept scenario_id from inference script
-    scenario_key: str = "scenario_1_ecommerce"  # Default scenario
+    scenario_key: Optional[str] = "scenario_1_ecommerce"  # Default scenario
     task_id: Optional[str] = None
-    seed: int = 42
+    seed: Optional[int] = 42
 
 
 class ResetResponse(BaseModel):
@@ -59,9 +59,13 @@ def create_app() -> FastAPI:
         _env_instance = ProductManagerEnv()
     
     @app.post("/reset", response_model=ResetResponse, tags=["Environment"])
-    async def reset(request: ResetRequest = Body(...)) -> ResetResponse:
+    async def reset(request: Optional[ResetRequest] = Body(None)) -> ResetResponse:
         """Reset the environment to initial state."""
         global _env_instance
+        
+        # Use provided request or create default
+        if request is None:
+            request = ResetRequest()
         
         # Determine which scenario to use
         scenario_key = request.scenario_id or request.scenario_key or "scenario_1_ecommerce"
