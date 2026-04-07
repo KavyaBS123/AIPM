@@ -217,6 +217,12 @@ def create_app() -> FastAPI:
 app = create_app()
 
 
-if __name__ == "__main__":
+def main():
+    """Entry point for running the server."""
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    port = 7860  # HF Spaces default, or 8000 for local
+    uvicorn.run(app, host="0.0.0.0", port=port)
+
+
+if __name__ == "__main__":
+    main()
