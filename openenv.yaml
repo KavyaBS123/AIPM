@@ -16,6 +16,22 @@ author:
 
 license: MIT
 
+grading:
+  type: automated
+  graders:
+    - task: task_001
+      grader_class: EasyTaskGrader
+      type: deterministic
+      scoring_method: "Evaluates feature selection quality based on impact and user requests"
+    - task: task_002
+      grader_class: MediumTaskGrader
+      type: deterministic
+      scoring_method: "Considers constraint satisfaction and business impact"
+    - task: task_003
+      grader_class: HardTaskGrader
+      type: deterministic
+      scoring_method: "Complex analysis of strategic fit and risk management"
+
 tags:
   - product-management
   - strategic-planning
@@ -174,20 +190,6 @@ info:
     - id: scenario_5_finance
       name: Personal Finance App
       description: Finance management app with 18% churn, $140K budget
-
-  # Grading
-  grading:
-    type: automated
-    graders:
-      - task: task_001
-        type: deterministic
-        scoring_method: "Evaluates feature selection quality based on impact and user requests"
-      - task: task_002
-        type: deterministic
-        scoring_method: "Considers constraint satisfaction and business impact"
-      - task: task_003
-        type: deterministic
-        scoring_method: "Complex analysis of strategic fit and risk management"
 
 deployment:
   platforms:
