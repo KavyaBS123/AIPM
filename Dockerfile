@@ -26,7 +26,7 @@ EXPOSE 7860
 
 # Health check script
 RUN echo '#!/bin/bash\n\
-    PORT="${PORT:-7860}"\n\
+    PORT="${PORT:-8000}"\n\
     curl -f "http://localhost:$PORT/health" || exit 1' > /app/healthcheck.sh && \
     chmod +x /app/healthcheck.sh
 
