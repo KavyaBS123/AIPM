@@ -325,6 +325,59 @@ async def get_tasks():
         )
 
 
+@app.get("/validate")
+async def validate_setup():
+    """
+    Validation endpoint that confirms all requirements for Phase 2.
+    
+    Returns:
+        Validation status including task-grader count and details
+    """
+    try:
+        from graders import EasyTaskGrader, MediumTaskGrader, HardTaskGrader
+        from tasks import list_tasks
+        
+        # Get all tasks
+        tasks = list_tasks()
+        
+        # Check tasks with graders
+        tasks_with_graders = []
+        grader_map = {
+            'EasyTaskGrader': EasyTaskGrader,
+            'MediumTaskGrader': MediumTaskGrader,
+            'HardTaskGrader': HardTaskGrader
+        }
+        
+        for task in tasks:
+            if hasattr(task, 'grader_class') and task.grader_class:
+                grader_class = grader_map.get(task.grader_class)
+                if grader_class:
+                    grader = grader_class()
+                    tasks_with_graders.append({
+                        'task_id': task.task_id,
+                        'name': task.name,
+                        'difficulty': task.difficulty,
+                        'grader_class': task.grader_class,
+                        'grader_available': True
+                    })
+        
+        # Validation result
+        has_minimum_tasks = len(tasks_with_graders) >= 3
+        
+        return {
+            'validation_status': 'PASS' if has_minimum_tasks else 'FAIL',
+            'tasks_with_graders_count': len(tasks_with_graders),
+            'required_count': 3,
+            'tasks_with_graders': tasks_with_graders,
+            'error_message': None if has_minimum_tasks else 'Not enough tasks with graders'
+        }
+    except Exception as e:
+        return {
+            'validation_status': 'ERROR',
+            'error_message': str(e)
+        }
+
+
 # =============================================================================
 # Root Endpoint
 # =============================================================================
@@ -337,13 +390,79 @@ async def root():
         "version": "1.0.0",
         "endpoints": {
             "health": "GET /health - Health check",
+            "info": "GET /info - Complete submission information",
             "reset": "POST /reset - Initialize environment for task",
             "step": "POST /step - Execute action",
             "state": "GET /state - Get current state",
             "tasks": "GET /tasks - List available tasks",
+            "validate": "GET /validate - Validate Phase 2 requirements",
             "docs": "GET /docs - Interactive API documentation"
         }
     }
+
+
+@app.get("/info")
+async def info():
+    """
+    Complete submission info - all tasks and graders details
+    
+    Returns:
+        Comprehensive submission information for validation
+    """
+    try:
+        from tasks.task_definitions import TASK_001, TASK_002, TASK_003
+        from graders import EasyTaskGrader, MediumTaskGrader, HardTaskGrader
+        
+        grader_map = {
+            'EasyTaskGrader': EasyTaskGrader,
+            'MediumTaskGrader': MediumTaskGrader,
+            'HardTaskGrader': HardTaskGrader
+        }
+        
+        tasks_info = []
+        for task in [TASK_001, TASK_002, TASK_003]:
+            grader_class_name = getattr(task, 'grader_class', None)
+            grader_class = grader_map.get(grader_class_name) if grader_class_name else None
+            
+            task_entry = {
+                'task_id': task.task_id,
+                'name': task.name,
+                'difficulty': task.difficulty,
+                'description': task.description,
+                'grader_class': grader_class_name,
+                'grader_available': grader_class is not None
+            }
+            
+            if grader_class:
+                try:
+                    grader = grader_class()
+                    task_entry['grader_instantiable'] = True
+                    task_entry['grader_module'] = grader_class.__module__
+                except Exception as e:
+                    task_entry['grader_instantiable'] = False
+                    task_entry['grader_error'] = str(e)
+            
+            tasks_info.append(task_entry)
+        
+        tasks_with_graders = [t for t in tasks_info if t.get('grader_available')]
+        
+        return {
+            'submission_info': {
+                'total_tasks': len(tasks_info),
+                'tasks_with_graders': len(tasks_with_graders)
+            },
+            'phase2_validation': {
+                'status': 'PASS' if len(tasks_with_graders) >= 3 else 'FAIL',
+                'check': 'At least 3 tasks with graders',
+                'result': f"{len(tasks_with_graders)}/3 tasks have graders"
+            },
+            'tasks': tasks_info
+        }
+    except Exception as e:
+        return {
+            'error': str(e),
+            'message': 'Failed to load submission info'
+        }
 
 
 # =============================================================================
