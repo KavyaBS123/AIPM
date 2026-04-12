@@ -21,8 +21,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application files
 COPY . .
 
-# Expose port for Hugging Face Spaces
-EXPOSE 7860
+# Expose port 8000 (default for local dev)
+EXPOSE 8000
 
 # Health check script
 RUN echo '#!/bin/bash\n\
