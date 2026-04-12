@@ -325,6 +325,36 @@ async def get_tasks():
         )
 
 
+@app.get("/manifest")
+async def get_manifest():
+    """
+    Get the complete grader manifest.
+    
+    This explicitly lists all tasks with their graders.
+    This is what the validator checks to confirm graders are enabled.
+    
+    Returns:
+        Grader manifest with validation status
+    """
+    try:
+        from grader_manifest import get_tasks_with_graders, validate_grader_setup
+        
+        result = validate_grader_setup()
+        return {
+            'validation_status': result['validation_status'],
+            'total_tasks': result['total_tasks'],
+            'tasks_with_graders': result['tasks_with_graders'],
+            'minimum_required': result['minimum_required'],
+            'all_graders_valid': result['all_graders_valid'],
+            'tasks': result['tasks']
+        }
+    except Exception as e:
+        return {
+            'validation_status': 'ERROR',
+            'error': str(e)
+        }
+
+
 @app.get("/validate")
 async def validate_setup():
     """
@@ -390,6 +420,7 @@ async def root():
         "version": "1.0.0",
         "endpoints": {
             "health": "GET /health - Health check",
+            "manifest": "GET /manifest - Grader manifest (what validator checks)",
             "info": "GET /info - Complete submission information",
             "reset": "POST /reset - Initialize environment for task",
             "step": "POST /step - Execute action",
