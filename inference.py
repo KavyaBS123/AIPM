@@ -43,14 +43,14 @@ MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 MODEL_NAME = os.getenv("MODEL_NAME", "mistral-large-latest")
 
-# Choose provider - PRIORITY: Mistral (OpenAI-compatible) > OpenAI > Groq
+# Choose provider - PRIORITY: Mistral (OpenAI-compatible) > OpenAI > Groq > Fallback
 USE_MISTRAL = bool(MISTRAL_API_KEY)
 USE_OPENAI = bool(OPENAI_API_KEY) and not USE_MISTRAL
 USE_GROQ = bool(GROQ_API_KEY) and not USE_MISTRAL and not USE_OPENAI
+USE_FALLBACK = not USE_MISTRAL and not USE_OPENAI and not USE_GROQ
 
-if not USE_MISTRAL and not USE_OPENAI and not USE_GROQ:
-    print("[ERROR] No API key configured. Set MISTRAL_API_KEY, OPENAI_API_KEY, or GROQ_API_KEY", file=sys.stderr)
-    sys.exit(1)
+if USE_FALLBACK:
+    print("[WARNING] No API key configured. Using fallback heuristic strategy.", file=sys.stderr)
 
 MAX_STEPS = 10
 TEMPERATURE = 0.5
@@ -62,7 +62,7 @@ MAX_TOKENS = 500
 # ============================================================================
 
 async def call_llm(messages: list) -> str:
-    """Call LLM API (Mistral, OpenAI, or Groq) with the given messages."""
+    """Call LLM API (Mistral, OpenAI, Groq, or Fallback) with the given messages."""
     
     if USE_MISTRAL:
         return await call_mistral(messages)
@@ -71,6 +71,9 @@ async def call_llm(messages: list) -> str:
     elif USE_GROQ:
         # Groq is sync, but wrap in async
         return await asyncio.to_thread(call_groq_sync, messages)
+    else:
+        # Fallback: use heuristic strategy
+        return await call_fallback(messages)
 
 
 async def call_mistral(messages: list) -> str:
@@ -78,8 +81,10 @@ async def call_mistral(messages: list) -> str:
     try:
         from openai import OpenAI
     except ImportError:
-        print("[ERROR] openai package not installed. Run: pip install openai", file=sys.stderr)
-        sys.exit(1)
+        raise Exception("openai package not installed. Run: pip install openai")
+    
+    if not MISTRAL_API_KEY:
+        raise Exception("MISTRAL_API_KEY not configured")
     
     # Mistral is OpenAI-compatible
     client = OpenAI(
@@ -104,8 +109,10 @@ async def call_openai(messages: list) -> str:
     try:
         from openai import OpenAI
     except ImportError:
-        print("[ERROR] openai package not installed. Run: pip install openai", file=sys.stderr)
-        sys.exit(1)
+        raise Exception("openai package not installed. Run: pip install openai")
+    
+    if not OPENAI_API_KEY:
+        raise Exception("OPENAI_API_KEY not configured")
     
     client = OpenAI(api_key=OPENAI_API_KEY)
     
@@ -126,8 +133,10 @@ def call_groq_sync(messages: list) -> str:
     try:
         from groq import Groq
     except ImportError:
-        print("[ERROR] groq package not installed. Run: pip install groq", file=sys.stderr)
-        sys.exit(1)
+        raise Exception("groq package not installed. Run: pip install groq")
+    
+    if not GROQ_API_KEY:
+        raise Exception("GROQ_API_KEY not configured")
     
     client = Groq(api_key=GROQ_API_KEY)
     
@@ -141,6 +150,68 @@ def call_groq_sync(messages: list) -> str:
         return response.choices[0].message.content
     except Exception as e:
         raise Exception(f"Groq API error: {str(e)}")
+
+
+async def call_fallback(messages: list) -> str:
+    """Fallback strategy when no API key is available.
+    
+    Uses heuristics to make decisions based on the observation.
+    Extracts features and their vote counts, then strategically prioritizes.
+    """
+    # Parse the last user message to extract features and votes
+    last_message = messages[-1]["content"] if messages else ""
+    
+    # Try to parse features from the prompt
+    features_data = []
+    if "AVAILABLE FEATURES" in last_message:
+        features_section = last_message.split("AVAILABLE FEATURES")[1].split("CONSTRAINTS")[0]
+        for line in features_section.split("\n"):
+            if "[F" in line and "Votes:" in line:
+                # Extract feature ID and votes
+                try:
+                    feature_id = line.split("[")[1].split("]")[0]
+                    votes_str = line.split("Votes: ")[1].split(",")[0]
+                    votes = int(votes_str)
+                    features_data.append((feature_id, votes))
+                except:
+                    pass
+    
+    # Strategy: Prioritize highest vote features first, then finalize
+    decision_count = len([m for m in messages if m["role"] == "user"]) - 1
+    
+    if features_data:
+        # Sort by votes descending
+        features_data.sort(key=lambda x: x[1], reverse=True)
+        
+        if decision_count < 2:
+            # Prioritize the top feature
+            feature_id, votes = features_data[0]
+            return json.dumps({
+                "action_type": "prioritize",
+                "feature_id": feature_id,
+                "justification": f"Highest user demand with {votes} votes. Strategic priority."
+            })
+        elif decision_count == 2:
+            # Finalize to lock in decisions
+            return json.dumps({
+                "action_type": "finalize",
+                "feature_id": None,
+                "justification": "Finalizing roadmap after strategic prioritization."
+            })
+        else:
+            # Reject or delay lower priority features
+            return json.dumps({
+                "action_type": "reject",
+                "feature_id": features_data[-1][0],
+                "justification": "Focusing on high-impact features."
+            })
+    else:
+        # Default fallback if we can't parse features
+        return json.dumps({
+            "action_type": "request_info",
+            "feature_id": None,
+            "justification": "Analyzing current status to make informed decision."
+        })
 
 
 # ============================================================================
@@ -475,11 +546,12 @@ async def run_inference(task_id: str, scenario_id: Optional[str] = None) -> None
         )
     
     except Exception as e:
+        error_msg = str(e)
         print(
             f"[END] success=false steps=0 score=0.00 rewards=",
             file=sys.stderr
         )
-        print(f"[ERROR] {str(e)}", file=sys.stderr)
+        print(f"[ERROR] {error_msg}", file=sys.stderr)
         sys.exit(1)
 
 
