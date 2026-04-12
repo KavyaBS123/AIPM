@@ -38,7 +38,7 @@ class EasyTaskGrader(BaseGrader):
             Tuple of (score, explanation)
         """
         if not actions:
-            return 0.0, "No actions taken"
+            return 0.01, "No actions taken"
         
         # Find first prioritize action
         prioritized_features = [
@@ -47,7 +47,7 @@ class EasyTaskGrader(BaseGrader):
         ]
         
         if not prioritized_features:
-            return 0.0, "No features were prioritized"
+            return 0.01, "No features were prioritized"
         
         first_prioritized_id = prioritized_features[0]
         
@@ -64,7 +64,7 @@ class EasyTaskGrader(BaseGrader):
         
         # Scoring logic
         if first_prioritized_id == most_critical_id:
-            score = 1.0
+            score = 0.99
             explanation = f"Correctly identified {most_critical_id} as most critical feature"
         else:
             # Partial credit based on criticality ranking
@@ -164,7 +164,9 @@ class MediumTaskGrader(BaseGrader):
         explanation += f"Optimal: {', '.join(optimal_ranking[:3])}. "
         explanation += f"Matches: {matches}/{task_constraint}"
         
-        return min(1.0, score), explanation
+        # Clamp score to (0, 1) exclusive
+        score = max(0.01, min(0.99, score))
+        return score, explanation
 
 
 class HardTaskGrader(BaseGrader):
@@ -192,7 +194,7 @@ class HardTaskGrader(BaseGrader):
             Tuple of (score, explanation)
         """
         if not actions:
-            return 0.0, "No actions taken"
+            return 0.01, "No actions taken"
         
         # Extract prioritized features
         prioritized_ids = [
@@ -255,20 +257,20 @@ class HardTaskGrader(BaseGrader):
             satisfaction_churn_benefit - revenue_risk_penalty
         )
         
-        # Normalize to 0-1
-        decision_quality = min(1.0, max(0.0, decision_quality))
+        # Normalize to (0, 1) exclusive
+        decision_quality = max(0.01, min(0.99, decision_quality))
         
         # Bonus/penalty for constraint adherence
         if within_capacity:
-            decision_quality = min(1.0, decision_quality + 0.15)
+            decision_quality = max(0.01, min(0.99, decision_quality + 0.15))
         else:
-            decision_quality = max(0.0, decision_quality - 0.2)
+            decision_quality = max(0.01, min(0.99, decision_quality - 0.2))
         
         # Bonus for good risk management
         if avg_risk < 0.3:
-            decision_quality = min(1.0, decision_quality + 0.1)
+            decision_quality = max(0.01, min(0.99, decision_quality + 0.1))
         elif avg_risk > 0.4:
-            decision_quality = max(0.0, decision_quality - 0.1)
+            decision_quality = max(0.01, min(0.99, decision_quality - 0.1))
         
         explanation = f"Revenue impact: {net_revenue_impact:.2f}, "
         explanation += f"Satisfaction: {net_satisfaction_impact:.2f}, "
@@ -276,4 +278,5 @@ class HardTaskGrader(BaseGrader):
         explanation += f"Total effort: {total_effort}/{max_capacity:.0f}. "
         explanation += f"Risk: {avg_risk:.2f}"
         
-        return decision_quality, explanation
+        # Clamp final score to (0, 1) exclusive
+        return max(0.01, min(0.99, decision_quality)), explanation

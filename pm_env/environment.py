@@ -208,14 +208,14 @@ class ProductManagerEnv:
         if self.current_observation is None:
             return {
                 "status": "not_initialized",
-                "grader_score": 0.0,
+                "grader_score": 0.01,
                 "total_reward": 0.0
             }
         
         # Calculate grader_score as a function of total_rewards
-        # grader_score = min(1.0, total_rewards) to cap at 1.0
-        # This means 1.12 rewards → 1.0 grader score
-        grader_score = min(1.0, self.total_rewards)
+        # Must be strictly between 0 and 1 (exclusive on both ends)
+        # So: clamp to (0.01, 0.99) range
+        grader_score = max(0.01, min(0.99, self.total_rewards))
         
         return {
             "observation": self.current_observation.dict(),

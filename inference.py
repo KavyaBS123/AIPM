@@ -683,10 +683,10 @@ async def run_inference(task_id: str, scenario_id: Optional[str] = None) -> None
         # Get final state and score
         try:
             final_state = (await get_environment_state())["state"]
-            final_score = final_state.get("grader_score", 0.0)
+            final_score = final_state.get("grader_score", 0.01)
             success = final_score >= 0.36  # Threshold for success (was 0.25, now 0.36)
         except:
-            final_score = 0.0
+            final_score = 0.01
             success = False
         
         # Log end
