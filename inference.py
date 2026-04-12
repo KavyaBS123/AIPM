@@ -30,6 +30,14 @@ from typing import Optional, Dict, Any, List
 import httpx
 from dotenv import load_dotenv
 
+# Try to import env directly (for standalone mode)
+try:
+    from pm_env.environment import ProductManagerEnv
+    from scenarios.data import SCENARIOS
+    STANDALONE_MODE = True
+except ImportError:
+    STANDALONE_MODE = False
+
 # Load environment
 load_dotenv()
 
@@ -42,6 +50,9 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 MODEL_NAME = os.getenv("MODEL_NAME", "mistral-large-latest")
+
+# Global environment instance (for standalone mode)
+_env_instance: Optional[ProductManagerEnv] = None
 
 # Choose provider - PRIORITY: Mistral (OpenAI-compatible) > OpenAI > Groq > Fallback
 USE_MISTRAL = bool(MISTRAL_API_KEY)
@@ -223,6 +234,44 @@ async def reset_environment(
     scenario_id: Optional[str] = None
 ) -> Dict[str, Any]:
     """Reset environment and return initial observation."""
+    global _env_instance
+    
+    # Try standalone mode first if available
+    if STANDALONE_MODE:
+        try:
+            # Map human-readable names to actual scenario keys if needed
+            scenario_key = scenario_id or "scenario_1_ecommerce"
+            scenario_mapping = {
+                "scenario_1_saas_analytics": "scenario_2_saas",
+                "scenario_1_ecommerce": "scenario_1_ecommerce",
+                "scenario_2_saas": "scenario_2_saas",
+                "scenario_3_social": "scenario_3_social",
+            }
+            
+            # Use mapped name if available, otherwise use as-is
+            if scenario_key in scenario_mapping:
+                scenario_key = scenario_mapping[scenario_key]
+            
+            if scenario_key not in SCENARIOS:
+                raise Exception(f"Unknown scenario: {scenario_key}. Available: {list(SCENARIOS.keys())}")
+            
+            # Create and initialize environment directly
+            scenario_data = SCENARIOS[scenario_key]
+            _env_instance = ProductManagerEnv(scenario_data=scenario_data)
+            observation = _env_instance.reset()
+            
+            # Convert observation to dict if needed
+            obs_dict = observation.model_dump() if hasattr(observation, 'model_dump') else (observation.dict() if hasattr(observation, 'dict') else observation)
+            
+            return {
+                "observation": obs_dict,
+                "info": {"scenario": scenario_key, "task": task_id}
+            }
+        except Exception as e:
+            # Fallback to API if standalone fails
+            pass
+    
+    # Fallback to API mode
     async with httpx.AsyncClient() as client:
         response = await client.post(
             f"{API_BASE_URL}/reset",
@@ -242,6 +291,55 @@ async def step_environment(
     justification: str
 ) -> Dict[str, Any]:
     """Execute one step in environment."""
+    global _env_instance
+    
+    # Try standalone mode first
+    if STANDALONE_MODE and _env_instance is not None:
+        try:
+            from pm_env.models import Action
+            
+            # Create action object
+            action = Action(
+                action_type=action_type,
+                feature_id=feature_id,
+                justification=justification
+            )
+            
+            # Step environment
+            result = _env_instance.step(action)
+            
+            # Handle different return types
+            if hasattr(result, 'reward'):  # It's a StepResult object
+                observation = result.observation
+                reward = result.reward
+                done = result.done
+                info = result.info
+                obs_dict = observation.model_dump() if hasattr(observation, 'model_dump') else (observation.dict() if hasattr(observation, 'dict') else observation)
+            elif isinstance(result, tuple) and len(result) == 4:
+                observation, reward, done, info = result
+                obs_dict = observation if isinstance(observation, dict) else (observation.model_dump() if hasattr(observation, 'model_dump') else (observation.dict() if hasattr(observation, 'dict') else None))
+            elif isinstance(result, dict):
+                obs_dict = result.get("observation")
+                reward = result.get("reward", 0.0)
+                done = result.get("done", False)
+                info = result.get("info", {})
+            else:
+                obs_dict = None
+                reward = 0.0
+                done = False
+                info = {}
+            
+            return {
+                "observation": obs_dict,
+                "reward": reward,
+                "done": done,
+                "info": info
+            }
+        except Exception as e:
+            # Fallback to API if standalone fails
+            pass
+    
+    # Fallback to API mode
     async with httpx.AsyncClient() as client:
         response = await client.post(
             f"{API_BASE_URL}/step",
@@ -266,6 +364,19 @@ async def step_environment(
 
 async def get_environment_state() -> Dict[str, Any]:
     """Get final environment state (for scoring)."""
+    global _env_instance
+    
+    # Try standalone mode first
+    if STANDALONE_MODE and _env_instance is not None:
+        try:
+            state = _env_instance.get_state()
+            state_dict = state.model_dump() if hasattr(state, 'model_dump') else (state.dict() if hasattr(state, 'dict') else state)
+            return {"state": state_dict}
+        except Exception as e:
+            # Fallback to API if standalone fails
+            pass
+    
+    # Fallback to API mode
     async with httpx.AsyncClient() as client:
         response = await client.get(f"{API_BASE_URL}/state")
         if response.status_code != 200:
