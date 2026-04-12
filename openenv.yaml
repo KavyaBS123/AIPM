@@ -154,6 +154,7 @@ info:
       description: Select 3 features from a 5-feature backlog with clear prioritization signals
       max_steps: 3
       difficulty: easy
+      grader_class: EasyTaskGrader
       expected_success_rate: 0.7
       
     - id: task_002
@@ -161,6 +162,7 @@ info:
       description: Balance 6+ features with conflicting priorities and budget constraints
       max_steps: 6
       difficulty: medium
+      grader_class: MediumTaskGrader
       expected_success_rate: 0.5
       
     - id: task_003
@@ -168,6 +170,7 @@ info:
       description: Complex scenario with 8+ features, limited capacity, and competing business objectives
       max_steps: 10
       difficulty: hard
+      grader_class: HardTaskGrader
       expected_success_rate: 0.3
   
   scenarios:
