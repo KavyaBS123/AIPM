@@ -16,6 +16,7 @@ class TaskDefinition:
     objective: str
     success_criteria: str
     hints: List[str]
+    grader_class: str  # ADDED: Grader class name
     
     def to_dict(self) -> Dict:
         """Convert to dictionary."""
@@ -28,6 +29,7 @@ class TaskDefinition:
             "objective": self.objective,
             "success_criteria": self.success_criteria,
             "hints": self.hints,
+            "grader_class": self.grader_class,
         }
 
 
@@ -52,7 +54,8 @@ TASK_001 = TaskDefinition(
         "Consider which impact area (retention/revenue/satisfaction) aligns with current metrics",
         "High user votes + relevant impact area = likely critical feature",
         "Pay attention to the severity of user complaints",
-    ]
+    ],
+    grader_class="EasyTaskGrader"
 )
 
 # Task 2: Medium - Roadmap Prioritization
@@ -77,7 +80,8 @@ TASK_002 = TaskDefinition(
         "Think about dependencies: does fixing one issue enable solving another?",
         "Balance user satisfaction, retention, and revenue impact",
         "It's okay to reject low-priority features first",
-    ]
+    ],
+    grader_class="MediumTaskGrader"
 )
 
 # Task 3: Hard - Trade-off Decision Making
@@ -106,7 +110,8 @@ TASK_003 = TaskDefinition(
         "Justify each decision with data: votes, impact area, and metrics context",
         "Consider the ripple effects of delaying certain features",
         "It's strategic to reject low-demand features to focus team",
-    ]
+    ],
+    grader_class="HardTaskGrader"
 )
 
 

@@ -15,6 +15,7 @@ class TaskDefinition(BaseModel):
     success_criteria: str = Field(..., description="What constitutes success")
     hints: Optional[str] = Field(None, description="Hints for solving the task")
     maximum_reward: float = Field(..., description="Maximum possible reward")
+    grader_class: str = Field(..., description="Grader class name (e.g., 'EasyTaskGrader')")
 
 
 TASK_DEFINITIONS = {
@@ -27,7 +28,8 @@ TASK_DEFINITIONS = {
         steps_allowed=5,
         success_criteria="The prioritized feature should be the one with highest criticality (combination of user requests, satisfaction impact, and churn reduction).",
         hints="Look at user complaint frequency, severity, and feature impact on satisfaction and churn.",
-        maximum_reward=1.0
+        maximum_reward=1.0,
+        grader_class="EasyTaskGrader"
     ),
     "task_medium_rank_features": TaskDefinition(
         task_id="task_002",
@@ -38,7 +40,8 @@ TASK_DEFINITIONS = {
         steps_allowed=15,
         success_criteria="Top 3 prioritized features should match the optimal ranking considering criticality and constraints.",
         hints="Consider both user impact (satisfaction, churn reduction) and implementation constraints (effort, risk, team capacity).",
-        maximum_reward=1.0
+        maximum_reward=1.0,
+        grader_class="MediumTaskGrader"
     ),
     "task_hard_tradeoff": TaskDefinition(
         task_id="task_003",
@@ -49,7 +52,8 @@ TASK_DEFINITIONS = {
         steps_allowed=25,
         success_criteria="Roadmap should demonstrate good trade-off judgment, staying within constraints while maximizing stakeholder value.",
         hints="Some features boost revenue but hurt satisfaction. Balance stakeholder interests. Consider multi-sprint planning.",
-        maximum_reward=1.0
+        maximum_reward=1.0,
+        grader_class="HardTaskGrader"
     )
 }
 

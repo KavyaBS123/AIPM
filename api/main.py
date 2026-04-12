@@ -76,6 +76,7 @@ class TaskInfo(BaseModel):
     description: str
     max_steps: int
     objective: str
+    grader_class: str = Field(..., description="Grader class name for this task")
 
 
 class StateResponse(BaseModel):
@@ -301,7 +302,7 @@ async def get_tasks():
     Get list of all available tasks
     
     Returns:
-        List of TaskInfo objects with task details
+        List of TaskInfo objects with task details and graders
     """
     try:
         tasks = list_tasks()
@@ -312,7 +313,8 @@ async def get_tasks():
                 difficulty=task.difficulty,
                 description=task.description,
                 max_steps=task.max_steps,
-                objective=task.objective
+                objective=task.objective,
+                grader_class=task.grader_class
             )
             for task in tasks
         ]
