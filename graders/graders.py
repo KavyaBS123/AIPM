@@ -53,11 +53,11 @@ class EasyTaskGrader(BaseGrader):
         
         # Calculate criticality based on user feedback and impact
         def calculate_criticality(feature: Feature) -> float:
-            """Calculate criticality score (0.0 to 1.0)."""
+            """Calculate criticality score (0.01 to 0.99)."""
             user_impact = (feature.user_requests / 1000.0) * 0.3  # 30% weight
             satisfaction_impact = max(0, feature.impact_on_satisfaction) * 0.4  # 40% weight
             churn_reduction = max(0, -feature.impact_on_churn) * 0.3  # 30% weight
-            return min(1.0, user_impact + satisfaction_impact + churn_reduction)
+            return max(0.01, min(0.99, user_impact + satisfaction_impact + churn_reduction))
         
         feature_criticality = {f.feature_id: calculate_criticality(f) for f in features}
         most_critical_id = max(feature_criticality, key=feature_criticality.get)
@@ -114,7 +114,7 @@ class MediumTaskGrader(BaseGrader):
         ]
         
         if len(prioritized_features) < task_constraint:
-            score = len(prioritized_features) * 0.15  # Partial credit
+            score = max(0.01, len(prioritized_features) * 0.15)  # Partial credit, clamped to (0, 1)
             explanation = f"Only prioritized {len(prioritized_features)}/{task_constraint} features"
             return score, explanation
         
