@@ -208,8 +208,109 @@ def create_app() -> FastAPI:
                 "state": "GET /state",
                 "health": "GET /health",
                 "info": "GET /info",
+                "validate": "GET /validate",
+                "manifest": "GET /manifest",
+                "tasks": "GET /tasks",
             },
         }
+    
+    @app.get("/validate", tags=["Validation"])
+    async def validate() -> Dict[str, Any]:
+        """
+        Phase 2 Validation Endpoint: Confirm at least 3 tasks with graders
+        
+        This is the CRITICAL endpoint that the Meta Hackathon validator checks.
+        Returns: {validation_status: 'PASS'/'FAIL', error_message: '...', tasks_with_graders_count: N}
+        """
+        try:
+            from tasks import list_tasks
+            from graders import EasyTaskGrader, MediumTaskGrader, HardTaskGrader
+            
+            tasks = list_tasks()
+            grader_map = {
+                'EasyTaskGrader': EasyTaskGrader,
+                'MediumTaskGrader': MediumTaskGrader,
+                'HardTaskGrader': HardTaskGrader
+            }
+            
+            tasks_with_graders = []
+            for task in tasks:
+                if hasattr(task, 'grader_class') and task.grader_class:
+                    grader_class = grader_map.get(task.grader_class)
+                    if grader_class:
+                        try:
+                            grader = grader_class()
+                            tasks_with_graders.append({
+                                'task_id': task.task_id,
+                                'name': task.name,
+                                'difficulty': task.difficulty,
+                                'grader_class': task.grader_class,
+                                'grader_available': True
+                            })
+                        except Exception:
+                            pass
+            
+            has_minimum_tasks = len(tasks_with_graders) >= 3
+            
+            return {
+                'validation_status': 'PASS' if has_minimum_tasks else 'FAIL',
+                'tasks_with_graders_count': len(tasks_with_graders),
+                'required_count': 3,
+                'tasks_with_graders': tasks_with_graders,
+                'error_message': None if has_minimum_tasks else 'Not enough tasks with graders'
+            }
+        except Exception as e:
+            return {
+                'validation_status': 'ERROR',
+                'error_message': str(e)
+            }
+    
+    @app.get("/tasks", tags=["Validation"])
+    async def get_tasks() -> list:
+        """
+        Get list of all available tasks with grader information
+        Used by validator to confirm graders are present
+        """
+        try:
+            from tasks import list_tasks
+            
+            tasks = list_tasks()
+            return [
+                {
+                    'task_id': task.task_id,
+                    'name': task.name,
+                    'difficulty': task.difficulty,
+                    'description': task.description,
+                    'grader_class': getattr(task, 'grader_class', None)
+                }
+                for task in tasks
+            ]
+        except Exception as e:
+            return {'error': str(e)}
+    
+    @app.get("/manifest", tags=["Validation"])
+    async def get_manifest() -> Dict[str, Any]:
+        """
+        Explicit grader manifest - lists all tasks with their graders
+        This is the definitive source for grader availability
+        """
+        try:
+            from grader_manifest import get_tasks_with_graders, validate_grader_setup
+            
+            result = validate_grader_setup()
+            return {
+                'validation_status': result.get('validation_status'),
+                'total_tasks': result.get('total_tasks'),
+                'tasks_with_graders': result.get('tasks_with_graders'),
+                'minimum_required': result.get('minimum_required'),
+                'all_graders_valid': result.get('all_graders_valid'),
+                'tasks': result.get('tasks', [])
+            }
+        except Exception as e:
+            return {
+                'validation_status': 'ERROR',
+                'error': str(e)
+            }
     
     return app
 

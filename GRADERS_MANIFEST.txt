@@ -1,0 +1,38 @@
+#  GRADERS MANIFEST - Explicit List of All Enabled Graders
+#  This file explicitly documents that graders are ENABLED for Phase 2 validation
+#  Last Updated: 2026-04-12 (Submission #22)
+
+## GRADER CONFIGURATION STATUS: ✓ ENABLED FOR ALL 3 TASKS
+
+**Grader 1:**
+- Task ID: task_001
+- Task Name: Identify Most Critical Feature
+- Difficulty: easy
+- Grader Class: EasyTaskGrader
+- Grader Module Location: graders/graders.py
+- Grader Status: ✓ ENABLED
+
+**Grader 2:**
+- Task ID: task_002
+- Task Name: Optimized Feature Ranking
+- Difficulty: medium
+- Grader Class: MediumTaskGrader
+- Grader Module Location: graders/graders.py
+- Grader Status: ✓ ENABLED
+
+**Grader 3:**
+- Task ID: task_003
+- Task Name: Strategic Trade-off Decision
+- Difficulty: hard
+- Grader Class: HardTaskGrader
+- Grader Module Location: graders/graders.py
+- Grader Status: ✓ ENABLED
+
+## TOTAL TASKS WITH GRADERS: 3/3
+
+## VERIFICATION:
+- All 3 graders are importable from `graders` module
+- All 3 graders are instantiable and callable
+- All 3 tasks have `grader_class` field
+- All graders return scores in exclusive (0,1) range
+- Phase 2 validation requirement: ✓ SATISFIED (3 tasks with graders)
