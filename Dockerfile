@@ -24,9 +24,14 @@ COPY . .
 # Expose port for Hugging Face Spaces
 EXPOSE 7860
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:7860/health || exit 1
+# Health check script
+RUN echo '#!/bin/bash\n\
+    PORT="${PORT:-7860}"\n\
+    curl -f "http://localhost:$PORT/health" || exit 1' > /app/healthcheck.sh && \
+    chmod +x /app/healthcheck.sh
 
-# Run the application
-CMD ["uvicorn", "api.server:app", "--host", "0.0.0.0", "--port", "7860"]
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD /app/healthcheck.sh
+
+# Run the application (supports HF Spaces PORT env var)
+CMD ["sh", "-c", "python main.py"]
