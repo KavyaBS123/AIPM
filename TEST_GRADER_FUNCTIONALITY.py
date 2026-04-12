@@ -51,7 +51,7 @@ try:
     mock_obs = Observation(
         scenario_id="test",
         user_complaints=[],
-        metrics=Metrics(churn_rate=0.1, retention_rate=0.9, user_satisfaction=7.0),
+        metrics=Metrics(churn_rate=0.1, retention_rate=0.9, user_satisfaction=7.0, revenue_growth=0.15),
         feature_backlog=[],
         constraints={},
         previous_actions=[],
