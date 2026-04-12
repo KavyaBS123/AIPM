@@ -1,11 +1,12 @@
 """Grading system for AI Product Manager Environment."""
 
-from graders.grader import (
+# Import from graders.py (the FIXED version with scores in (0,1) exclusive range)
+# NOT from grader.py (the old version with 0.0 and 1.0 scores)
+from graders.graders import (
     BaseGrader,
     EasyTaskGrader,
     MediumTaskGrader,
     HardTaskGrader,
-    grade_task,
 )
 
 __all__ = [
@@ -13,5 +14,4 @@ __all__ = [
     "EasyTaskGrader",
     "MediumTaskGrader",
     "HardTaskGrader",
-    "grade_task",
 ]
