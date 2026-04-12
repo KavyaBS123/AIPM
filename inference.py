@@ -45,27 +45,36 @@ load_dotenv()
 # Configuration
 # ============================================================================
 
+# Environment URLs and Keys
 API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000")
+LITELLM_API_KEY = os.getenv("API_KEY")  # Validator-provided LiteLLM proxy key
+LITELLM_API_BASE = os.getenv("API_BASE_URL")  # Validator-provided LiteLLM proxy base URL
+
+# Alternative API keys (for local development)
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-MODEL_NAME = os.getenv("MODEL_NAME", "mistral-large-latest")
+
+MODEL_NAME = os.getenv("MODEL_NAME", "gpt-4o")
 
 # Global environment instance (for standalone mode)
 _env_instance: Optional[ProductManagerEnv] = None
 
-# Choose provider - PRIORITY: Mistral (OpenAI-compatible) > OpenAI > Groq > Fallback
-USE_MISTRAL = bool(MISTRAL_API_KEY)
-USE_OPENAI = bool(OPENAI_API_KEY) and not USE_MISTRAL
-USE_GROQ = bool(GROQ_API_KEY) and not USE_MISTRAL and not USE_OPENAI
-USE_FALLBACK = not USE_MISTRAL and not USE_OPENAI and not USE_GROQ
+# Choose provider - PRIORITY: LiteLLM (Validator) > Mistral > OpenAI > Groq > Fallback
+USE_LITELLM = bool(LITELLM_API_KEY and LITELLM_API_BASE)
+USE_MISTRAL = bool(MISTRAL_API_KEY) and not USE_LITELLM
+USE_OPENAI = bool(OPENAI_API_KEY) and not USE_LITELLM and not USE_MISTRAL
+USE_GROQ = bool(GROQ_API_KEY) and not USE_LITELLM and not USE_MISTRAL and not USE_OPENAI
+USE_FALLBACK = not USE_LITELLM and not USE_MISTRAL and not USE_OPENAI and not USE_GROQ
 
-if USE_FALLBACK:
+if USE_LITELLM:
+    print(f"[INFO] Using LiteLLM proxy: {LITELLM_API_BASE}", file=sys.stderr)
+elif USE_FALLBACK:
     print("[WARNING] No API key configured. Using fallback heuristic strategy.", file=sys.stderr)
 
 MAX_STEPS = 10
-TEMPERATURE = 0.5
-MAX_TOKENS = 500
+TEMPERATURE = 0.7
+MAX_TOKENS = 1000
 
 
 # ============================================================================
@@ -73,9 +82,11 @@ MAX_TOKENS = 500
 # ============================================================================
 
 async def call_llm(messages: list) -> str:
-    """Call LLM API (Mistral, OpenAI, Groq, or Fallback) with the given messages."""
+    """Call LLM API via appropriate provider (LiteLLM proxy, Mistral, OpenAI, Groq, or Fallback)."""
     
-    if USE_MISTRAL:
+    if USE_LITELLM:
+        return await call_litellm(messages)
+    elif USE_MISTRAL:
         return await call_mistral(messages)
     elif USE_OPENAI:
         return await call_openai(messages)
@@ -85,6 +96,36 @@ async def call_llm(messages: list) -> str:
     else:
         # Fallback: use heuristic strategy
         return await call_fallback(messages)
+
+
+async def call_litellm(messages: list) -> str:
+    """Call LiteLLM proxy (validator-provided) using OpenAI-compatible client."""
+    try:
+        from openai import OpenAI
+    except ImportError:
+        raise Exception("openai package not installed. Run: pip install openai")
+    
+    if not LITELLM_API_KEY or not LITELLM_API_BASE:
+        raise Exception("LiteLLM credentials not configured")
+    
+    try:
+        # Create OpenAI client pointing to LiteLLM proxy
+        client = OpenAI(
+            api_key=LITELLM_API_KEY,
+            base_url=LITELLM_API_BASE
+        )
+        
+        response = client.chat.completions.create(
+            model=MODEL_NAME,
+            messages=messages,
+            temperature=TEMPERATURE,
+            max_tokens=MAX_TOKENS,
+        )
+        return response.choices[0].message.content
+    except Exception as e:
+        print(f"[ERROR] LiteLLM API error: {str(e)}", file=sys.stderr)
+        raise Exception(f"LiteLLM API error: {str(e)}")
+
 
 
 async def call_mistral(messages: list) -> str:
@@ -97,13 +138,13 @@ async def call_mistral(messages: list) -> str:
     if not MISTRAL_API_KEY:
         raise Exception("MISTRAL_API_KEY not configured")
     
-    # Mistral is OpenAI-compatible
-    client = OpenAI(
-        api_key=MISTRAL_API_KEY,
-        base_url="https://api.mistral.ai/v1"
-    )
-    
     try:
+        # Mistral is OpenAI-compatible
+        client = OpenAI(
+            api_key=MISTRAL_API_KEY,
+            base_url="https://api.mistral.ai/v1"
+        )
+        
         response = client.chat.completions.create(
             model=MODEL_NAME,
             messages=messages,
@@ -112,6 +153,7 @@ async def call_mistral(messages: list) -> str:
         )
         return response.choices[0].message.content
     except Exception as e:
+        print(f"[ERROR] Mistral API error: {str(e)}", file=sys.stderr)
         raise Exception(f"Mistral API error: {str(e)}")
 
 
@@ -125,9 +167,9 @@ async def call_openai(messages: list) -> str:
     if not OPENAI_API_KEY:
         raise Exception("OPENAI_API_KEY not configured")
     
-    client = OpenAI(api_key=OPENAI_API_KEY)
-    
     try:
+        client = OpenAI(api_key=OPENAI_API_KEY)
+        
         response = client.chat.completions.create(
             model=MODEL_NAME,
             messages=messages,
@@ -136,6 +178,7 @@ async def call_openai(messages: list) -> str:
         )
         return response.choices[0].message.content
     except Exception as e:
+        print(f"[ERROR] OpenAI API error: {str(e)}", file=sys.stderr)
         raise Exception(f"OpenAI API error: {str(e)}")
 
 
@@ -149,9 +192,9 @@ def call_groq_sync(messages: list) -> str:
     if not GROQ_API_KEY:
         raise Exception("GROQ_API_KEY not configured")
     
-    client = Groq(api_key=GROQ_API_KEY)
-    
     try:
+        client = Groq(api_key=GROQ_API_KEY)
+        
         response = client.chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=messages,
@@ -160,6 +203,7 @@ def call_groq_sync(messages: list) -> str:
         )
         return response.choices[0].message.content
     except Exception as e:
+        print(f"[ERROR] Groq API error: {str(e)}", file=sys.stderr)
         raise Exception(f"Groq API error: {str(e)}")
 
 
